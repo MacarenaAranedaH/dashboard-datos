@@ -1,0 +1,21 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Datos guardados en tiempo de ejecución (NO subir a GitHub)
+saved_datasets/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pkl
+
+# Archivos de configuración local con secretos
+.streamlit/secrets.toml
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

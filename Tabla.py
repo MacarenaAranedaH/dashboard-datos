@@ -140,6 +140,10 @@ def split_tables_by_blank_rows(raw: pd.DataFrame, min_rows: int = 2) -> list:
 def promote_header(df: pd.DataFrame, header_row_pos: int) -> pd.DataFrame:
     """Usa una fila (por posición) como encabezado y limpia el resto."""
     df = df.reset_index(drop=True)
+    if df.empty:
+        return df  # No hay filas que procesar
+    # Asegura que la posición del encabezado esté dentro del rango válido
+    header_row_pos = max(0, min(int(header_row_pos), len(df) - 1))
     header = df.iloc[header_row_pos].tolist()
     body = df.iloc[header_row_pos + 1:].copy()
     body.columns = _dedupe_columns(header)
@@ -339,6 +343,12 @@ def upload_flow():
 
     raw = read_raw_sheet(file_bytes, hoja)
 
+    if raw is None or raw.empty:
+        st.sidebar.warning(
+            f"La hoja '{hoja}' parece estar vacía. Elige otra hoja."
+        )
+        return
+
     if modo == "Encabezado en fila específica":
         header_row = st.sidebar.number_input(
             "Fila del encabezado (1 = primera fila)",
@@ -350,8 +360,16 @@ def upload_flow():
         with st.sidebar.expander("Vista previa de la hoja (sin procesar)"):
             st.dataframe(raw.head(15), use_container_width=True)
         if st.sidebar.button("Cargar tabla", key="load_excel_single"):
-            df = promote_header(raw, header_row - 1)
-            _set_active_df(df, f"{archivo.name} · {hoja}")
+            try:
+                df = promote_header(raw, header_row - 1)
+                if df.empty:
+                    st.sidebar.warning(
+                        "No hay datos debajo de la fila de encabezado elegida."
+                    )
+                else:
+                    _set_active_df(df, f"{archivo.name} · {hoja}")
+            except Exception as e:
+                st.sidebar.error(f"No se pudo cargar la tabla: {e}")
 
     else:  # Auto-detectar
         bloques = split_tables_by_blank_rows(raw)
@@ -371,13 +389,21 @@ def upload_flow():
         header_row = st.sidebar.number_input(
             "Fila del encabezado dentro del bloque",
             min_value=1,
-            max_value=len(bloque),
+            max_value=max(1, len(bloque)),
             value=1,
             key="header_row_block",
         )
         if st.sidebar.button("Cargar bloque", key="load_excel_block"):
-            df = promote_header(bloque, header_row - 1)
-            _set_active_df(df, f"{archivo.name} · {hoja} · Tabla {idx + 1}")
+            try:
+                df = promote_header(bloque, header_row - 1)
+                if df.empty:
+                    st.sidebar.warning(
+                        "No hay datos debajo de la fila de encabezado elegida."
+                    )
+                else:
+                    _set_active_df(df, f"{archivo.name} · {hoja} · Tabla {idx + 1}")
+            except Exception as e:
+                st.sidebar.error(f"No se pudo cargar el bloque: {e}")
 
 
 def saved_flow():
